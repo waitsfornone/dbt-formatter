@@ -30,6 +30,12 @@ describe('jinja variables written against neighbouring words', () => {
     expect(out).toContain('{{ col }} AS x');
   });
 
+  it('keeps a reserved word attached on either side', () => {
+    expect(formatter('select {{ x }}current from t', options)).toContain('{{ x }}CURRENT');
+    expect(formatter('select current{{ x }} from t', options)).toContain('CURRENT{{ x }}');
+    expect(formatter('select a from t where{{ x }}', options)).toContain('WHERE{{ x }}');
+  });
+
   it('leaves dotted and call-style neighbours alone', () => {
     expect(formatter('select {{ alias }}.col from t', options)).toContain('{{ alias }}.col');
     expect(formatter('select {{ fn }}(a) from t', options)).toContain('{{ fn }}(');
@@ -39,6 +45,11 @@ describe('jinja variables written against neighbouring words', () => {
 describe('jinja tags written against a word', () => {
   it('returns the query unchanged, since re-indenting could change the rendered SQL', () => {
     const query = 'select a{% if x %}_b{% endif %} from t';
+    expect(formatter(query, options)).toBe(query);
+  });
+
+  it('returns the query unchanged when a reserved word is glued to a tag', () => {
+    const query = 'select current{% if x %}_date{% endif %} from t';
     expect(formatter(query, options)).toBe(query);
   });
 
@@ -63,8 +74,8 @@ describe('line comments', () => {
 });
 
 describe('performance', () => {
-  it('formats a query with long whitespace runs in linear time', () => {
-    const body = Array.from({ length: 400 }, (_, i) => `col_${i}  ${' '.repeat(300)}  as c${i},`).join('\n');
+  it('formats a query with long whitespace runs inside block comments in linear time', () => {
+    const body = Array.from({ length: 400 }, (_, i) => `col_${i} as c${i}, /*${' '.repeat(300)}*/`).join('\n');
     const started = Date.now();
     formatter(`select\n${body}\n z from t`, options);
     expect(Date.now() - started).toBeLessThan(5000);
