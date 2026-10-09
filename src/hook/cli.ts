@@ -113,7 +113,7 @@ export const formatFile = (file: string, opts: HookOptions): Result => {
   } catch (e) {
     return { status: 'error', detail: e.message };
   }
-  if (typeof formatted !== 'string' || formatted.trim().length === 0) {
+  if (typeof formatted !== 'string' || (formatted.trim().length === 0 && original.trim().length > 0)) {
     return { status: 'error', detail: 'formatter returned empty output' };
   }
   if (formatted === original) {
@@ -129,7 +129,9 @@ export const formatFile = (file: string, opts: HookOptions): Result => {
   }
   if (!opts.check) {
     const tmp = `${file}.dbtfmt.tmp`;
-    fs.writeFileSync(tmp, formatted, { mode: stat.mode });
+    fs.writeFileSync(tmp, formatted);
+    // The `mode` option of writeFileSync is filtered through the umask, so set it explicitly.
+    fs.chmodSync(tmp, stat.mode);
     fs.renameSync(tmp, file);
   }
   return { status: 'changed' };

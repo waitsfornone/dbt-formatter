@@ -4,6 +4,10 @@ import * as path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
 import { parseArgs, run } from '../../src/hook/cli';
 
+// rimraf ships no types; fs.rmdirSync's `recursive` option needs Node 12.10+ and CI still runs Node 10.
+// tslint:disable-next-line:no-var-requires
+const rimraf = require('rimraf');
+
 const makeDir = (): string => fs.mkdtempSync(path.join(os.tmpdir(), 'dbt-hook-'));
 const capture = () => {
   const out: string[] = [];
@@ -37,7 +41,7 @@ describe('run', () => {
     dir = makeDir();
   });
   afterEach(() => {
-    fs.rmdirSync(dir, { recursive: true } as any);
+    rimraf.sync(dir);
   });
   const write = (name: string, text: string): string => {
     const p = path.join(dir, name);
@@ -113,6 +117,28 @@ describe('run', () => {
     fs.chmodSync(f, 0o640);
     run([f], capture().io);
     expect(fs.statSync(f).mode & 0o777).toBe(0o640);
+  });
+
+  it('preserves a mode the umask would have filtered out', () => {
+    const f = write('a.sql', 'select a from t');
+    fs.chmodSync(f, 0o666);
+    const previous = process.umask(0o022);
+    try {
+      run([f], capture().io);
+    } finally {
+      process.umask(previous);
+    }
+    expect(fs.statSync(f).mode & 0o777).toBe(0o666);
+  });
+
+  it('does not report an error for empty or whitespace-only files, and settles on the second run', () => {
+    for (const text of ['', '\n', '  \n\n']) {
+      const f = write('blank.sql', text);
+      const first = capture();
+      run([f], first.io);
+      expect(first.err).toEqual([]);
+      expect(run([f], capture().io)).toBe(0);
+    }
   });
 });
 

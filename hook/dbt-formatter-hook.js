@@ -7400,7 +7400,7 @@ var formatFile = (file, opts) => {
   } catch (e) {
     return { status: "error", detail: e.message };
   }
-  if (typeof formatted !== "string" || formatted.trim().length === 0) {
+  if (typeof formatted !== "string" || formatted.trim().length === 0 && original.trim().length > 0) {
     return { status: "error", detail: "formatter returned empty output" };
   }
   if (formatted === original) {
@@ -7415,7 +7415,8 @@ var formatFile = (file, opts) => {
   }
   if (!opts.check) {
     const tmp = `${file}.dbtfmt.tmp`;
-    fs.writeFileSync(tmp, formatted, { mode: stat.mode });
+    fs.writeFileSync(tmp, formatted);
+    fs.chmodSync(tmp, stat.mode);
     fs.renameSync(tmp, file);
   }
   return { status: "changed" };
