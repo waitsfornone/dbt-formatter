@@ -6822,13 +6822,6 @@ var trimEnd = (st) => {
   }
   return st.slice(0, end);
 };
-var trimSpaces = (st) => {
-  let end = st.length;
-  while (end > 0 && st.charCodeAt(end - 1) === 32) {
-    end--;
-  }
-  return st.slice(0, end);
-};
 var equalizeWhitespace = (st) => {
   return st.replace(/\s+/g, " ");
 };
@@ -6850,8 +6843,15 @@ var isCamelCase = (token) => {
 };
 
 // src/core/formatter.ts
-var GLUE_BEFORE = [token_types_default.WORD, token_types_default.NUMBER];
-var GLUE_AFTER = [token_types_default.WORD, token_types_default.NUMBER, token_types_default.DBT_START_VAR];
+var WORD_LIKE = [
+  token_types_default.WORD,
+  token_types_default.NUMBER,
+  token_types_default.RESERVED,
+  token_types_default.RESERVED_TOPLEVEL,
+  token_types_default.RESERVED_NEWLINE
+];
+var GLUE_BEFORE = WORD_LIKE;
+var GLUE_AFTER = [...WORD_LIKE, token_types_default.DBT_START_VAR];
 var leadingBlanks = (line) => {
   let n = 0;
   while (n < line.length && (line.charAt(n) === " " || line.charAt(n) === "	")) {
@@ -6979,7 +6979,7 @@ var Formatter = class {
     this.formatVariableStart = (node, query) => {
       this.inVariableBlock = true;
       if (node.previous && GLUE_BEFORE.includes(node.previous.item.type)) {
-        query = trimSpaces(query);
+        query = trimEnd(query);
       }
       const token = node.item;
       const nextToken = this.getNextNodeNonWhitespace(node);
@@ -7198,14 +7198,20 @@ var getConfiguration = (opt) => {
     specialWordChars: presets["specialWordChars"][identifier]
   };
 };
-var WORD_LIKE = [token_types_default.WORD, token_types_default.NUMBER];
+var WORD_LIKE2 = [
+  token_types_default.WORD,
+  token_types_default.NUMBER,
+  token_types_default.RESERVED,
+  token_types_default.RESERVED_TOPLEVEL,
+  token_types_default.RESERVED_NEWLINE
+];
 var hasTagGlue = (tokens) => {
   for (const node of tokens.items()) {
     const { type, value } = node.item;
-    if (type === token_types_default.DBT_START_TEMPLATE && value.charAt(0) === "{" && node.previous && WORD_LIKE.includes(node.previous.item.type)) {
+    if (type === token_types_default.DBT_START_TEMPLATE && value.charAt(0) === "{" && node.previous && WORD_LIKE2.includes(node.previous.item.type)) {
       return true;
     }
-    if (type === token_types_default.DBT_END_TEMPLATE && node.next && WORD_LIKE.includes(node.next.item.type)) {
+    if (type === token_types_default.DBT_END_TEMPLATE && node.next && WORD_LIKE2.includes(node.next.item.type)) {
       return true;
     }
   }
