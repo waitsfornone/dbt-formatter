@@ -22,7 +22,7 @@ const TOKEN_RE = new RegExp(
   ]
     .map(r => r.source)
     .join('|'),
-  'g',
+  'g'
 );
 const STRING_RE = /'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
 // Words, numbers and multi-char operators are atomic: whitespace appearing inside one (`: :`, `< =`, `1 . 5`)
