@@ -13,6 +13,18 @@ import { LinkedList } from '../utils/data-structures';
 // Tokens:
 // 1. Always try to derive rules based on next token when dependencies are necassary
 
+// Token types that, when written directly against a Jinja variable in the source (`prefix_{{ x }}`, `{{ x }}_suffix`),
+// must stay attached to it.
+const WORD_LIKE: string[] = [
+  tokenTypes.WORD,
+  tokenTypes.NUMBER,
+  tokenTypes.RESERVED,
+  tokenTypes.RESERVED_TOPLEVEL,
+  tokenTypes.RESERVED_NEWLINE,
+];
+const GLUE_BEFORE: string[] = WORD_LIKE;
+const GLUE_AFTER: string[] = [...WORD_LIKE, tokenTypes.DBT_START_VAR];
+
 export default class Formatter {
   private upper: boolean = false;
   private newline: boolean = true;
@@ -147,8 +159,17 @@ export default class Formatter {
   /*
    * FORMATTERS
    */
+  private isGluedNext = (node: Node<Token>): boolean => {
+    return !!node.next && GLUE_AFTER.includes(node.next.item.type);
+  };
+
   private formatVariableStart = (node: Node<Token>, query: string): string => {
     this.inVariableBlock = true;
+
+    if (node.previous && GLUE_BEFORE.includes(node.previous.item.type)) {
+      // `prefix_{{ x }}`: drop the whitespace/newline the previous word appended
+      query = normalize.trimEnd(query);
+    }
 
     const token = node.item;
     const nextToken = this.getNextNodeNonWhitespace(node);
@@ -162,6 +183,10 @@ export default class Formatter {
     // Remove whitespaces from token and add space at the end
     const token = node.item.value;
     const nextToken = this.getNextNodeNonWhitespace(node);
+    if (this.isGluedNext(node)) {
+      // `{{ x }}_suffix`: keep the suffix attached
+      return query + normalize.removeWhitespace(token);
+    }
     query += normalize.addWhitespace(normalize.removeWhitespace(token));
 
     // If the next token is a reserved word (as, when,...) don't add
