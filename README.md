@@ -11,6 +11,25 @@ Fork of [henriblancke/dbt-formatter](https://github.com/henriblancke/dbt-formatt
 - `--` comments are preserved in files with Windows (CRLF) line endings. They used to be formatted as SQL.
 - Large files are much faster: no quadratic `trimEnd` (lodash before 4.17.21) and no per-token scan of the rest of the file.
 
+### Use with pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/waitsfornone/dbt-formatter
+    rev: <commit sha or tag>
+    hooks:
+      - id: dbt-formatter          # formats in place
+      # - id: dbt-formatter-check  # report only, changes nothing
+```
+
+The hook runs `hook/dbt-formatter-hook.js`, a single bundled file with no dependencies. pre-commit downloads Node for it if none is installed.
+
+- A file is only rewritten if the result differs from the original in whitespace and case alone. Strings, quoted identifiers, `$$` blocks, comments and Jinja expressions must come out identical, and whitespace next to a Jinja tag must keep touching (or not touching) its neighbouring word. Anything else is left unchanged and reported as `unsafe`.
+- Exit code is 1 if a file was changed (as for other formatters), so the commit stops and you re-stage. Errors also exit 1. `--strict` makes `unsafe` files fail too.
+- Put `dbt-formatter-ignore` on the first line of a file to skip it. Files over 500 KB are skipped (`--max-bytes`).
+- Defaults match the VS Code extension: `--indent 4`, upper-case keywords, lower-case identifiers, camelCase kept. Pass `args: [--indent, "2"]` etc. to change them.
+- `hook/` is built from `src/hook` with `npm run build:hook` and committed, because pre-commit installs straight from the repository. A test fails if it is out of date.
+
 ### Install
 
 ```bash
