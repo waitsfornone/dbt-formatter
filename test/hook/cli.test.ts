@@ -100,6 +100,14 @@ describe('run', () => {
     expect(fs.readFileSync(f, 'utf8')).toBe(text);
   });
 
+  it('keeps repeated runs stable on a file with an indented multi-line block comment', () => {
+    const f = write('a.sql', 'select\n    a,\n    b /* one\n       two */,\n    c\nfrom t\n');
+    run([f], capture().io);
+    const afterFirst = fs.readFileSync(f, 'utf8');
+    expect(run([f], capture().io)).toBe(0);
+    expect(fs.readFileSync(f, 'utf8')).toBe(afterFirst);
+  });
+
   it('preserves the file mode', () => {
     const f = write('a.sql', 'select a from t');
     fs.chmodSync(f, 0o640);

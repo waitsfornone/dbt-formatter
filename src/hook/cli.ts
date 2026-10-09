@@ -16,7 +16,7 @@ export interface HookOptions {
   files: string[];
 }
 
-export type Status = 'changed' | 'unchanged' | 'unsafe' | 'ignored' | 'skipped' | 'error';
+export type Status = 'changed' | 'unchanged' | 'unsafe' | 'unstable' | 'ignored' | 'skipped' | 'error';
 
 export interface Result {
   status: Status;
@@ -26,10 +26,11 @@ export interface Result {
 const USAGE = `usage: dbt-formatter-hook [options] FILE...
 
 Formats dbt SQL files in place. A file is only rewritten if the result differs from the original in whitespace
-and case alone; otherwise it is left untouched and reported as "unsafe".
+and case alone, and formatting the result again gives the same text; otherwise it is left untouched and reported
+as "unsafe" or "unstable".
 
   --check             report what would change, write nothing
-  --strict            exit 1 for "unsafe" files too
+  --strict            exit 1 for "unsafe" and "unstable" files too
   --max-bytes N       skip files larger than N bytes (default 500000, 0 = no limit)
   --indent N          spaces per indent level (default 4)
   --no-upper          do not uppercase reserved words
@@ -96,16 +97,19 @@ export const formatFile = (file: string, opts: HookOptions): Result => {
   if (original.split('\n', 1)[0].indexOf(IGNORE_MARKER) !== -1) {
     return { status: 'ignored' };
   }
+  const formatOptions = {
+    sql: 'default',
+    indent: opts.indent,
+    upper: opts.upper,
+    lowerWords: opts.lowerWords,
+    allowCamelcase: opts.camelCase,
+    newline: opts.newline,
+  };
   let formatted: string;
+  let again: string;
   try {
-    formatted = format(original, {
-      sql: 'default',
-      indent: opts.indent,
-      upper: opts.upper,
-      lowerWords: opts.lowerWords,
-      allowCamelcase: opts.camelCase,
-      newline: opts.newline,
-    });
+    formatted = format(original, formatOptions);
+    again = format(formatted, formatOptions);
   } catch (e) {
     return { status: 'error', detail: e.message };
   }
@@ -118,6 +122,10 @@ export const formatFile = (file: string, opts: HookOptions): Result => {
   const problem = verify(original, formatted);
   if (problem) {
     return { status: 'unsafe', detail: problem };
+  }
+  if (again !== formatted) {
+    // A hook that rewrites a file differently on every run can never pass.
+    return { status: 'unstable', detail: 'formatting the result again changes it' };
   }
   if (!opts.check) {
     const tmp = `${file}.dbtfmt.tmp`;
@@ -160,7 +168,7 @@ export const run = (argv: string[], io: Io): number => {
     if (result.status !== 'unchanged') {
       io.out(`${result.status}\t${file}${result.detail ? `\t${result.detail}` : ''}`);
     }
-    if (result.status === 'changed' || result.status === 'error' || (result.status === 'unsafe' && opts.strict)) {
+    if (result.status === 'changed' || result.status === 'error' || ((result.status === 'unsafe' || result.status === 'unstable') && opts.strict)) {
       exit = 1;
     }
   }

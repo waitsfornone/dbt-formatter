@@ -24,8 +24,8 @@ repos:
 
 The hook runs `hook/dbt-formatter-hook.js`, a single bundled file with no dependencies. pre-commit downloads Node for it if none is installed.
 
-- A file is only rewritten if the result differs from the original in whitespace and case alone. Strings, quoted identifiers, `$$` blocks, comments and Jinja expressions must come out identical, and whitespace next to a Jinja tag must keep touching (or not touching) its neighbouring word. Anything else is left unchanged and reported as `unsafe`.
-- Exit code is 1 if a file was changed (as for other formatters), so the commit stops and you re-stage. Errors also exit 1. `--strict` makes `unsafe` files fail too.
+- A file is only rewritten if the result differs from the original in whitespace and case alone. Strings, quoted identifiers, `$$` blocks, comments and Jinja expressions must come out identical, and whitespace next to a Jinja tag must keep touching (or not touching) its neighbouring word. Anything else is left unchanged and reported as `unsafe`. A file that does not format to itself (formatting the result again changes it) is left unchanged and reported as `unstable`, so the hook can never fail forever on a file it keeps rewriting.
+- Exit code is 1 if a file was changed (as for other formatters), so the commit stops and you re-stage. Errors also exit 1. `--strict` makes `unsafe` and `unstable` files fail too.
 - Put `dbt-formatter-ignore` on the first line of a file to skip it. Files over 500 KB are skipped (`--max-bytes`).
 - Defaults match the VS Code extension: `--indent 4`, upper-case keywords, lower-case identifiers, camelCase kept. Pass `args: [--indent, "2"]` etc. to change them.
 - `hook/` is built from `src/hook` with `npm run build:hook` and committed, because pre-commit installs straight from the repository. A test fails if it is out of date.

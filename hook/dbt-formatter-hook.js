@@ -6852,6 +6852,13 @@ var isCamelCase = (token) => {
 // src/core/formatter.ts
 var GLUE_BEFORE = [token_types_default.WORD, token_types_default.NUMBER];
 var GLUE_AFTER = [token_types_default.WORD, token_types_default.NUMBER, token_types_default.DBT_START_VAR];
+var leadingBlanks = (line) => {
+  let n = 0;
+  while (n < line.length && (line.charAt(n) === " " || line.charAt(n) === "	")) {
+    n++;
+  }
+  return n;
+};
 var Formatter = class {
   constructor(opt) {
     this.upper = false;
@@ -6918,8 +6925,11 @@ var Formatter = class {
       const appendix = this.newline ? "\n" : "";
       return formattedQuery.trim() + appendix;
     };
+    // Re-indent the continuation lines of a block comment. A line that is already indented at least as far as the
+    // current level is left alone: adding the indent again on every run made the comment drift to the right forever.
     this.indentComment = (comment) => {
-      return comment.replace(/\n/g, "\n" + this.indentation.getIndent());
+      const indent = this.indentation.getIndent();
+      return comment.split("\n").map((line, i) => i === 0 || leadingBlanks(line) >= indent.length ? line : indent + line).join("\n");
     };
     this.trimTrailingWhitespace = (node, query) => {
       let appendix = "";
@@ -7298,10 +7308,11 @@ var IGNORE_MARKER = "dbt-formatter-ignore";
 var USAGE = `usage: dbt-formatter-hook [options] FILE...
 
 Formats dbt SQL files in place. A file is only rewritten if the result differs from the original in whitespace
-and case alone; otherwise it is left untouched and reported as "unsafe".
+and case alone, and formatting the result again gives the same text; otherwise it is left untouched and reported
+as "unsafe" or "unstable".
 
   --check             report what would change, write nothing
-  --strict            exit 1 for "unsafe" files too
+  --strict            exit 1 for "unsafe" and "unstable" files too
   --max-bytes N       skip files larger than N bytes (default 500000, 0 = no limit)
   --indent N          spaces per indent level (default 4)
   --no-upper          do not uppercase reserved words
@@ -7367,16 +7378,19 @@ var formatFile = (file, opts) => {
   if (original.split("\n", 1)[0].indexOf(IGNORE_MARKER) !== -1) {
     return { status: "ignored" };
   }
+  const formatOptions = {
+    sql: "default",
+    indent: opts.indent,
+    upper: opts.upper,
+    lowerWords: opts.lowerWords,
+    allowCamelcase: opts.camelCase,
+    newline: opts.newline
+  };
   let formatted;
+  let again;
   try {
-    formatted = dbt_formatter_default(original, {
-      sql: "default",
-      indent: opts.indent,
-      upper: opts.upper,
-      lowerWords: opts.lowerWords,
-      allowCamelcase: opts.camelCase,
-      newline: opts.newline
-    });
+    formatted = dbt_formatter_default(original, formatOptions);
+    again = dbt_formatter_default(formatted, formatOptions);
   } catch (e) {
     return { status: "error", detail: e.message };
   }
@@ -7389,6 +7403,9 @@ var formatFile = (file, opts) => {
   const problem = verify(original, formatted);
   if (problem) {
     return { status: "unsafe", detail: problem };
+  }
+  if (again !== formatted) {
+    return { status: "unstable", detail: "formatting the result again changes it" };
   }
   if (!opts.check) {
     const tmp = `${file}.dbtfmt.tmp`;
@@ -7421,7 +7438,7 @@ var run = (argv, io) => {
     if (result.status !== "unchanged") {
       io.out(`${result.status}	${file}${result.detail ? `	${result.detail}` : ""}`);
     }
-    if (result.status === "changed" || result.status === "error" || result.status === "unsafe" && opts.strict) {
+    if (result.status === "changed" || result.status === "error" || (result.status === "unsafe" || result.status === "unstable") && opts.strict) {
       exit = 1;
     }
   }
