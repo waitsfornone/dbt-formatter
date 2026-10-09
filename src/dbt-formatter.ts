@@ -20,7 +20,13 @@ const getConfiguration = (opt: Options): Config => {
   };
 };
 
-const WORD_LIKE: string[] = [tokenTypes.WORD, tokenTypes.NUMBER];
+const WORD_LIKE: string[] = [
+  tokenTypes.WORD,
+  tokenTypes.NUMBER,
+  tokenTypes.RESERVED,
+  tokenTypes.RESERVED_TOPLEVEL,
+  tokenTypes.RESERVED_NEWLINE,
+];
 
 /**
  * A `{% ... %}` tag written directly against a word (`a{% if x %}_b{% endif %}`) can't be re-indented without

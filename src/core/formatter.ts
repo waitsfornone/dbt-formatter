@@ -15,8 +15,15 @@ import { LinkedList } from '../utils/data-structures';
 
 // Token types that, when written directly against a Jinja variable in the source (`prefix_{{ x }}`, `{{ x }}_suffix`),
 // must stay attached to it.
-const GLUE_BEFORE: string[] = [tokenTypes.WORD, tokenTypes.NUMBER];
-const GLUE_AFTER: string[] = [tokenTypes.WORD, tokenTypes.NUMBER, tokenTypes.DBT_START_VAR];
+const WORD_LIKE: string[] = [
+  tokenTypes.WORD,
+  tokenTypes.NUMBER,
+  tokenTypes.RESERVED,
+  tokenTypes.RESERVED_TOPLEVEL,
+  tokenTypes.RESERVED_NEWLINE,
+];
+const GLUE_BEFORE: string[] = WORD_LIKE;
+const GLUE_AFTER: string[] = [...WORD_LIKE, tokenTypes.DBT_START_VAR];
 
 export default class Formatter {
   private upper: boolean = false;
@@ -160,8 +167,8 @@ export default class Formatter {
     this.inVariableBlock = true;
 
     if (node.previous && GLUE_BEFORE.includes(node.previous.item.type)) {
-      // `prefix_{{ x }}`: drop the space the previous word appended
-      query = normalize.trimSpaces(query);
+      // `prefix_{{ x }}`: drop the whitespace/newline the previous word appended
+      query = normalize.trimEnd(query);
     }
 
     const token = node.item;
