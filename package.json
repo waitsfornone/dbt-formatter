@@ -12,7 +12,8 @@
   "module": "dist/dbt-formatter.esm.js",
   "browser": "dist/dbt-formatter.umd.js",
   "files": [
-    "dist"
+    "dist",
+    "hook"
   ],
   "author": "Henri Blancke <blanckehenri@gmail.com>",
   "repository": {
@@ -27,7 +28,10 @@
   "engines": {
     "node": ">=10.0.0"
   },
-  "bin": "dist/cli/formatter.js",
+  "bin": {
+    "dbt-formatter": "dist/cli/formatter.js",
+    "dbt-formatter-hook": "hook/dbt-formatter-hook.js"
+  },
   "scripts": {
     "test": "jest --coverage",
     "prebuild": "rimraf dist bin",
@@ -37,7 +41,9 @@
     "test:watch": "jest --coverage --watch",
     "test:ci": "npm run lint && npm run test -- --no-cache",
     "tslint-check": "tslint-config-prettier-check ./tslint.json",
-    "lint": "tslint  --project tsconfig.json -t codeFrame 'src/**/*.ts' 'test/**/*.ts'"
+    "lint": "tslint  --project tsconfig.json -t codeFrame 'src/**/*.ts' 'test/**/*.ts'",
+    "build:hook": "esbuild src/hook/main.ts --bundle --platform=node --target=node10 --tsconfig=tsconfig.json --banner:js='#!/usr/bin/env node' --outfile=hook/dbt-formatter-hook.js",
+    "check:hook": "npm run build:hook --silent && git diff --exit-code -- hook"
   },
   "lint-staged": {
     "{src,test}/**/*.ts": [
@@ -95,6 +101,7 @@
     "@types/jest": "^25.2.3",
     "@types/lodash": "^4.14.153",
     "@types/node": "^14.0.5",
+    "esbuild": "^0.28.2",
     "jest": "^26.0.1",
     "jest-config": "^26.0.1",
     "lodash.camelcase": "^4.3.0",

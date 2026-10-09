@@ -81,3 +81,19 @@ describe('performance', () => {
     expect(Date.now() - started).toBeLessThan(5000);
   });
 });
+
+describe('block comments', () => {
+  it('do not drift to the right when the output is formatted again', () => {
+    const query = 'select\n    a,\n    b /* first line\n       second line */,\n    c\nfrom t\n';
+    const once = formatter(query, options);
+    expect(formatter(once, options)).toBe(once);
+    expect(formatter(formatter(once, options), options)).toBe(once);
+  });
+
+  it('keep a continuation line that is already indented far enough', () => {
+    const query = 'select a, /* x\n                            y */ b from t';
+    const once = formatter(query, options);
+    expect(once).toContain('                            y */');
+    expect(formatter(once, options)).toBe(once);
+  });
+});

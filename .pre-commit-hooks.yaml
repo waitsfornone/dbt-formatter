@@ -1,0 +1,13 @@
+- id: dbt-formatter
+  name: dbt-formatter
+  description: Format dbt SQL (Jinja-aware) in place. Files are only rewritten if just whitespace and case change.
+  entry: dbt-formatter-hook
+  language: node
+  types: [sql]
+
+- id: dbt-formatter-check
+  name: dbt-formatter (check only)
+  description: Report dbt SQL files that dbt-formatter would change, without modifying them.
+  entry: dbt-formatter-hook --check
+  language: node
+  types: [sql]

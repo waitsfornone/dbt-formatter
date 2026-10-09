@@ -25,6 +25,14 @@ const WORD_LIKE: string[] = [
 const GLUE_BEFORE: string[] = WORD_LIKE;
 const GLUE_AFTER: string[] = [...WORD_LIKE, tokenTypes.DBT_START_VAR];
 
+const leadingBlanks = (line: string): number => {
+  let n = 0;
+  while (n < line.length && (line.charAt(n) === ' ' || line.charAt(n) === '\t')) {
+    n++;
+  }
+  return n;
+};
+
 export default class Formatter {
   private upper: boolean = false;
   private newline: boolean = true;
@@ -106,8 +114,14 @@ export default class Formatter {
     return formattedQuery.trim() + appendix;
   };
 
+  // Re-indent the continuation lines of a block comment. A line that is already indented at least as far as the
+  // current level is left alone: adding the indent again on every run made the comment drift to the right forever.
   private indentComment = (comment: string): string => {
-    return comment.replace(/\n/g, '\n' + this.indentation.getIndent());
+    const indent = this.indentation.getIndent();
+    return comment
+      .split('\n')
+      .map((line, i) => (i === 0 || leadingBlanks(line) >= indent.length ? line : indent + line))
+      .join('\n');
   };
 
   private trimTrailingWhitespace = (node: Node<Token>, query: string): string => {
