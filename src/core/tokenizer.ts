@@ -34,7 +34,7 @@ export default class Tokenizer {
   };
 
   private static createLineCommentRegex = (ids: string[]): RegExp => {
-    return new RegExp(`^((?:${ids.map(id => escapeRegExp(id)).join('|')}).*?(?:\n|$))`);
+    return new RegExp(`^((?:${ids.map(id => escapeRegExp(id)).join('|')})[^\n]*?(?:\n|$))`);
   };
 
   private static createMultiWordRegex = (words: string[]): RegExp => {
@@ -156,25 +156,25 @@ export default class Tokenizer {
       0: {
         input,
         type: tokenTypes.DBT_START_VAR,
-        regex: /\{\s?\{\s?/,
+        regex: /^\{\s?\{\s?/,
         description: 'Finds start of a dbt/jinja variable.',
       },
       1: {
         input,
         type: tokenTypes.DBT_END_VAR,
-        regex: /\s?\}\s?\}/,
+        regex: /^\s?\}\s?\}/,
         description: 'Finds end of a dbt/jinja variable.',
       },
       2: {
         input,
         type: tokenTypes.DBT_START_TEMPLATE,
-        regex: /\s?\{\s?\%\-?/,
+        regex: /^\s?\{\s?\%\-?/,
         description: 'Finds start of a dbt/jinja template/macro.',
       },
       3: {
         input,
         type: tokenTypes.DBT_END_TEMPLATE,
-        regex: /\-?\%\s?\}/,
+        regex: /^\-?\%\s?\}/,
         description: 'Finds end of a dbt/jinja template/macro.',
       },
       4: {
