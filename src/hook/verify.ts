@@ -4,7 +4,26 @@
  */
 
 // Order matters: the earliest match in the text wins, so quotes inside comments (and vice versa) are handled.
-const TOKEN_RE = /\{#[\s\S]*?#\}|\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|--[^\n]*|\/\/[^\n]*|\/\*[\s\S]*?\*\/|\$\$[\s\S]*?\$\$|'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
+// Quoted forms are the ones the formatter's tokenizer treats as one unit (Tokenizer.createStringPattern): '..' and
+// ".." with backslash or doubled-quote escapes, `..`, and [..] (SQL Server style).
+const TOKEN_RE = new RegExp(
+  [
+    /\{#[\s\S]*?#\}/,
+    /\{\{[\s\S]*?\}\}/,
+    /\{%[\s\S]*?%\}/,
+    /--[^\n]*/,
+    /\/\/[^\n]*/,
+    /\/\*[\s\S]*?\*\//,
+    /\$\$[\s\S]*?\$\$/,
+    /'(?:[^'\\]|\\[\s\S]|'')*'/,
+    /"(?:[^"\\]|\\[\s\S]|"")*"/,
+    /`[^`]*`/,
+    /\[[^\]]*\]/,
+  ]
+    .map(r => r.source)
+    .join('|'),
+  'g',
+);
 const STRING_RE = /'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
 // Words, numbers and multi-char operators are atomic: whitespace appearing inside one (`: :`, `< =`, `1 . 5`)
 // is a real change.

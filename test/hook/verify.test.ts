@@ -17,6 +17,24 @@ describe('verify', () => {
     expect(verify('select "Col" from t', 'select "col" from t')).toMatch(/literal altered/);
   });
 
+  it('rejects a changed backtick-quoted identifier', () => {
+    expect(verify('select `Col` from t', 'select `col` from t')).toMatch(/literal altered/);
+  });
+
+  it('rejects a changed bracket-quoted identifier', () => {
+    expect(verify('select [My Col] from t', 'select [my col] from t')).toMatch(/literal altered/);
+    expect(verify('select [My Col] from t', 'select [My  Col] from t')).toMatch(/literal altered/);
+  });
+
+  it('treats backslash-escaped quotes as part of the string', () => {
+    expect(verify("select 'It\\'s A' from t", "select 'it\\'s a' from t")).toMatch(/literal altered/);
+    expect(verify("select 'It\\'s' as X from t", "select 'It\\'s'\nAS x from t")).toBeNull();
+  });
+
+  it('still accepts case and whitespace changes around quoted identifiers', () => {
+    expect(verify('select `Col`,[My Col] from T', 'SELECT\n    `Col`,\n    [My Col]\nFROM\n    t\n')).toBeNull();
+  });
+
   it('rejects whitespace inserted inside a multi-character operator', () => {
     expect(verify('select a::int', 'select a : : int')).toMatch(/sql token/);
     expect(verify('select a <= b', 'select a < = b')).toMatch(/sql token/);
