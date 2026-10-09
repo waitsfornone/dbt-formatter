@@ -2,6 +2,15 @@
 
 # DBT Formatter
 
+### About this fork
+
+Fork of [henriblancke/dbt-formatter](https://github.com/henriblancke/dbt-formatter), maintained for the dbt projects at Strata Decision. Differences from upstream 1.3.0:
+
+- Names built from Jinja stay intact. `{{ a }}_{{ b }}` and `prefix_{{ x }}` used to get a space or a newline inserted, which changes the rendered SQL.
+- A `{% %}` tag written directly against a word (`a{% if x %}_b{% endif %}`) leaves the query untouched instead of being re-indented.
+- `--` comments are preserved in files with Windows (CRLF) line endings. They used to be formatted as SQL.
+- Large files are much faster: no quadratic `trimEnd` (lodash before 4.17.21) and no per-token scan of the rest of the file.
+
 ### Install
 
 ```bash
