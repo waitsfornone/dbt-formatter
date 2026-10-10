@@ -3,14 +3,19 @@
  * whitespace and keyword/identifier case alone.
  */
 
+// Jinja lexes quoted strings inside {{ }} and {% %}, so a closing delimiter within quotes doesn't end the tag
+// (e.g. `{{ config(pre_hook="{{ f(this) }}") }}`). Falls back to the first delimiter if a quote never closes.
+const JINJA_STR = /'(?:[^'\\]|\\[\s\S])*'|"(?:[^"\\]|\\[\s\S])*"/.source;
+const JINJA_EXPR = new RegExp(`\\{\\{(?:${JINJA_STR}|[^}'"]|\\}(?!\\})|['"])*?\\}\\}`);
+const JINJA_STMT = new RegExp(`\\{%(?:${JINJA_STR}|[^%'"]|%(?!\\})|['"])*?%\\}`);
 // Order matters: the earliest match in the text wins, so quotes inside comments (and vice versa) are handled.
 // Quoted forms are the ones the formatter's tokenizer treats as one unit (Tokenizer.createStringPattern): '..' and
 // ".." with backslash or doubled-quote escapes, `..`, and [..] (SQL Server style).
 const TOKEN_RE = new RegExp(
   [
     /\{#[\s\S]*?#\}/,
-    /\{\{[\s\S]*?\}\}/,
-    /\{%[\s\S]*?%\}/,
+    JINJA_EXPR,
+    JINJA_STMT,
     /--[^\n]*/,
     /\/\/[^\n]*/,
     /\/\*[\s\S]*?\*\//,

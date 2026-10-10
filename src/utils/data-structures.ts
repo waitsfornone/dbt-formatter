@@ -58,6 +58,9 @@ export class LinkedList<T> {
   public isEmpty = () => !this.head || this.head === this.EMPTY_NODE;
 
   public *items() {
+    if (this.isEmpty()) {
+      return;
+    }
     let node = this.head;
     while (node.next) {
       yield node;

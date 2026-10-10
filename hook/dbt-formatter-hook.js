@@ -6411,6 +6411,9 @@ var LinkedList = class {
     };
   }
   *items() {
+    if (this.isEmpty()) {
+      return;
+    }
     let node = this.head;
     while (node.next) {
       yield node;
@@ -7221,6 +7224,9 @@ var format = (query, opt = { sql: "default", indent: 2 }) => {
   if (!formatters.includes(opt.sql)) {
     throw Error(`Unsupported SQL dialect: ${opt.sql}`);
   }
+  if (query === "") {
+    return query;
+  }
   const config = getConfiguration(opt);
   const tokens = new Tokenizer(config).tokenize(query);
   if (hasTagGlue(tokens)) {
@@ -7231,11 +7237,14 @@ var format = (query, opt = { sql: "default", indent: 2 }) => {
 var dbt_formatter_default = format;
 
 // src/hook/verify.ts
+var JINJA_STR = /'(?:[^'\\]|\\[\s\S])*'|"(?:[^"\\]|\\[\s\S])*"/.source;
+var JINJA_EXPR = new RegExp(`\\{\\{(?:${JINJA_STR}|[^}'"]|\\}(?!\\})|['"])*?\\}\\}`);
+var JINJA_STMT = new RegExp(`\\{%(?:${JINJA_STR}|[^%'"]|%(?!\\})|['"])*?%\\}`);
 var TOKEN_RE = new RegExp(
   [
     /\{#[\s\S]*?#\}/,
-    /\{\{[\s\S]*?\}\}/,
-    /\{%[\s\S]*?%\}/,
+    JINJA_EXPR,
+    JINJA_STMT,
     /--[^\n]*/,
     /\/\/[^\n]*/,
     /\/\*[\s\S]*?\*\//,

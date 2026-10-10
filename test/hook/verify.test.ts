@@ -54,6 +54,20 @@ describe('verify', () => {
     expect(verify('{{ x }}', '{{ y }}')).toMatch(/jinja altered/);
   });
 
+  it('does not end a jinja tag at a closing delimiter inside a quoted string', () => {
+    const cfg = '{{ config(pre_hook="{{ f(this) }}", materialized=\'table\') }}';
+    expect(verify(cfg, cfg.replace('config(', 'config( '))).toBeNull();
+    expect(verify("{% set x = '%}' %}\nselect 1", "{% set x = '%}' %}\n\nselect 1")).toBeNull();
+    expect(verify('{{ config(pre_hook="{{ f(this) }}") }}', '{{ config(pre_hook="{{ F(this) }}") }}')).toMatch(/jinja/);
+  });
+
+  it('stays linear on an unterminated quote inside a jinja tag', () => {
+    const text = '{{ ' + "'a ".repeat(20000) + ' }}';
+    const start = Date.now();
+    verify(text, text);
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+
   it('accepts whitespace changes inside a jinja tag', () => {
     expect(verify("{{config(materialized='table')}}", "{{ config(materialized='table') }}")).toBeNull();
   });
