@@ -29,9 +29,9 @@ Fork of [henriblancke/dbt-formatter](https://github.com/henriblancke/dbt-formatt
 
    There are no release tags for the hook yet, so pin `rev` to a commit SHA from `master` (`git ls-remote https://github.com/waitsfornone/dbt-formatter master`). Avoid a branch name as `rev`: pre-commit warns that it is a mutable reference, and it will not update on its own.
 3. Register the git hook in your clone: `pre-commit install`. Every contributor does this once per clone.
-4. Optionally format everything that is already committed: `pre-commit run dbt-formatter --all-files`. The first run on an existing project will rewrite many files, so do it in its own commit, and expect it to exit 1 because files were changed. Running it again should pass with no changes.
+4. Optionally format everything that is already committed: `pre-commit run dbt-formatter --all-files`. On an existing project this may rewrite many files, so do it in its own commit. If any file was changed the run exits 1; running it again should then pass with no changes. If nothing needed formatting, it exits 0.
 
-To move to a newer version, run `pre-commit autoupdate` (or edit `rev`). To limit the hook to part of a repository, add `files: ^models/` or `exclude: ^target/` to the hook entry.
+To move to a newer version, edit `rev` to a newer commit SHA, or run `pre-commit autoupdate --bleeding-edge` to move it to the latest commit on `master`. Plain `pre-commit autoupdate` will not work yet: it picks the latest tag (`v1.3.0`), which predates the hook definitions, and fails with `dbt-formatter` missing from that revision. It will work once a release is tagged that includes `.pre-commit-hooks.yaml`. To limit the hook to part of a repository, add `files: ^models/` or `exclude: ^target/` to the hook entry.
 
 The hook runs `hook/dbt-formatter-hook.js`, a single bundled file with no dependencies. pre-commit downloads Node for it if none is installed.
 
