@@ -75,6 +75,24 @@ describe('verify', () => {
     }
   });
 
+  it('stays fast on unterminated quotes, brackets and comments', () => {
+    const inputs = [
+      "select '" + "a '".repeat(30000),
+      "select '" + "\\'".repeat(30000),
+      'select ' + '[a '.repeat(30000),
+      'select ' + '`a '.repeat(30000),
+      '{# ' + '{# '.repeat(30000),
+      '/* ' + '/* '.repeat(30000),
+      '$$ ' + 'a $$ b '.repeat(1) + '$$$ '.repeat(10000),
+      '{{ ' + '{{ '.repeat(30000),
+    ];
+    for (const text of inputs) {
+      const start = Date.now();
+      verify(text, text);
+      expect(Date.now() - start).toBeLessThan(1000);
+    }
+  });
+
   it('accepts whitespace changes inside a jinja tag', () => {
     expect(verify("{{config(materialized='table')}}", "{{ config(materialized='table') }}")).toBeNull();
   });

@@ -7260,22 +7260,28 @@ var findTagEnd = (text, start) => {
   }
   return -1;
 };
-var TOKEN_RE = new RegExp(
-  [
-    /\{#[\s\S]*?#\}/,
-    /\{[{%]/,
-    // opener only; findTagEnd finds the rest
-    /--[^\n]*/,
-    /\/\/[^\n]*/,
-    /\/\*[\s\S]*?\*\//,
-    /\$\$[\s\S]*?\$\$/,
-    /'(?:[^'\\]|\\[\s\S]|'')*'/,
-    /"(?:[^"\\]|\\[\s\S]|"")*"/,
-    /`[^`]*`/,
-    /\[[^\]]*\]/
-  ].map((r) => r.source).join("|"),
-  "g"
-);
+var OPENER_RE = /\{#|\{\{|\{%|--|\/\/|\/\*|\$\$|'|"|`|\[/g;
+var sticky = (re) => new RegExp(re.source, "y");
+var FORMS = {
+  "{#": sticky(/\{#[\s\S]*?#\}/),
+  "--": sticky(/--[^\n]*/),
+  "//": sticky(/\/\/[^\n]*/),
+  "/*": sticky(/\/\*[\s\S]*?\*\//),
+  $$: sticky(/\$\$[\s\S]*?\$\$/),
+  "'": sticky(/'(?:[^'\\]|\\[\s\S]|'')*'/),
+  '"': sticky(/"(?:[^"\\]|\\[\s\S]|"")*"/),
+  "`": sticky(/`[^`]*`/),
+  "[": sticky(/\[[^\]]*\]/)
+};
+var findTokenEnd = (text, start, opener) => {
+  if (opener === "{{" || opener === "{%") {
+    return findTagEnd(text, start);
+  }
+  const form = FORMS[opener];
+  form.lastIndex = start;
+  const m = form.exec(text);
+  return m ? start + m[0].length : -1;
+};
 var STRING_RE = /'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
 var SQL_TOKEN_RE = /\u0000|[A-Za-z_][A-Za-z0-9_$]*|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|::|<=|>=|<>|!=|\|\||->>|->|=>|:=|\S/g;
 var WORD_CHAR = /\w/;
@@ -7285,18 +7291,20 @@ var sqlTokens = (skeleton) => (skeleton.match(SQL_TOKEN_RE) || []).map((t) => t.
 var tokenize = (text) => {
   const tokens = [];
   const glue = [];
+  const unterminated = {};
   let skeleton = "";
   let last2 = 0;
-  TOKEN_RE.lastIndex = 0;
-  for (let m = TOKEN_RE.exec(text); m; m = TOKEN_RE.exec(text)) {
+  OPENER_RE.lastIndex = 0;
+  for (let m = OPENER_RE.exec(text); m; m = OPENER_RE.exec(text)) {
     const offset = m.index;
-    let end = offset + m[0].length;
-    if (m[0] === "{{" || m[0] === "{%") {
-      const tagEnd = findTagEnd(text, offset);
-      if (tagEnd < 0) {
-        continue;
-      }
-      end = tagEnd;
+    const opener = m[0];
+    if (unterminated[opener]) {
+      continue;
+    }
+    const end = findTokenEnd(text, offset, opener);
+    if (end < 0) {
+      unterminated[opener] = true;
+      continue;
     }
     tokens.push(text.slice(offset, end));
     const before = offset > 0 ? text.charAt(offset - 1) : "";
@@ -7304,7 +7312,7 @@ var tokenize = (text) => {
     glue.push([WORD_CHAR.test(before), WORD_CHAR.test(after)]);
     skeleton += text.slice(last2, offset) + "\0";
     last2 = end;
-    TOKEN_RE.lastIndex = end;
+    OPENER_RE.lastIndex = end;
   }
   return { tokens, glue, skeleton: skeleton + text.slice(last2) };
 };

@@ -31,26 +31,37 @@ const findTagEnd = (text: string, start: number): number => {
   return -1;
 };
 
-// Order matters: the earliest match in the text wins, so quotes inside comments (and vice versa) are handled.
+// Order matters: the earliest opener in the text wins, so quotes inside comments (and vice versa) are handled.
 // Quoted forms are the ones the formatter's tokenizer treats as one unit (Tokenizer.createStringPattern): '..' and
 // ".." with backslash or doubled-quote escapes, `..`, and [..] (SQL Server style).
-const TOKEN_RE = new RegExp(
-  [
-    /\{#[\s\S]*?#\}/,
-    /\{[{%]/, // opener only; findTagEnd finds the rest
-    /--[^\n]*/,
-    /\/\/[^\n]*/,
-    /\/\*[\s\S]*?\*\//,
-    /\$\$[\s\S]*?\$\$/,
-    /'(?:[^'\\]|\\[\s\S]|'')*'/,
-    /"(?:[^"\\]|\\[\s\S]|"")*"/,
-    /`[^`]*`/,
-    /\[[^\]]*\]/,
-  ]
-    .map(r => r.source)
-    .join('|'),
-  'g'
-);
+// Each opener is matched against its full form with a regex. When that fails (an unterminated quote or
+// comment), no later opener of the same kind can succeed either, so it is remembered and skipped. That keeps
+// scanning linear on malformed files instead of rescanning the rest of the text from every opener.
+const OPENER_RE = /\{#|\{\{|\{%|--|\/\/|\/\*|\$\$|'|"|`|\[/g;
+const sticky = (re: RegExp): RegExp => new RegExp(re.source, 'y');
+// Sticky, so a failed attempt at an opener never searches ahead for a later match.
+const FORMS: { [opener: string]: RegExp } = {
+  '{#': sticky(/\{#[\s\S]*?#\}/),
+  '--': sticky(/--[^\n]*/),
+  '//': sticky(/\/\/[^\n]*/),
+  '/*': sticky(/\/\*[\s\S]*?\*\//),
+  $$: sticky(/\$\$[\s\S]*?\$\$/),
+  "'": sticky(/'(?:[^'\\]|\\[\s\S]|'')*'/),
+  '"': sticky(/"(?:[^"\\]|\\[\s\S]|"")*"/),
+  '`': sticky(/`[^`]*`/),
+  '[': sticky(/\[[^\]]*\]/),
+};
+
+/** End offset of the token opening at `start`, or -1 if it never closes. */
+const findTokenEnd = (text: string, start: number, opener: string): number => {
+  if (opener === '{{' || opener === '{%') {
+    return findTagEnd(text, start);
+  }
+  const form = FORMS[opener];
+  form.lastIndex = start;
+  const m = form.exec(text);
+  return m ? start + m[0].length : -1;
+};
 const STRING_RE = /'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
 // Words, numbers and multi-char operators are atomic: whitespace appearing inside one (`: :`, `< =`, `1 . 5`)
 // is a real change.
@@ -73,18 +84,20 @@ const sqlTokens = (skeleton: string): string[] => (skeleton.match(SQL_TOKEN_RE) 
 const tokenize = (text: string): Tokenized => {
   const tokens: string[] = [];
   const glue: Array<[boolean, boolean]> = [];
+  const unterminated: { [opener: string]: boolean } = {};
   let skeleton = '';
   let last = 0;
-  TOKEN_RE.lastIndex = 0;
-  for (let m = TOKEN_RE.exec(text); m; m = TOKEN_RE.exec(text)) {
+  OPENER_RE.lastIndex = 0;
+  for (let m = OPENER_RE.exec(text); m; m = OPENER_RE.exec(text)) {
     const offset = m.index;
-    let end = offset + m[0].length;
-    if (m[0] === '{{' || m[0] === '{%') {
-      const tagEnd = findTagEnd(text, offset);
-      if (tagEnd < 0) {
-        continue; // unterminated tag: leave it as plain text, as the regex alternatives did
-      }
-      end = tagEnd;
+    const opener = m[0];
+    if (unterminated[opener]) {
+      continue;
+    }
+    const end = findTokenEnd(text, offset, opener);
+    if (end < 0) {
+      unterminated[opener] = true; // left as plain text
+      continue;
     }
     tokens.push(text.slice(offset, end));
     const before = offset > 0 ? text.charAt(offset - 1) : '';
@@ -92,7 +105,7 @@ const tokenize = (text: string): Tokenized => {
     glue.push([WORD_CHAR.test(before), WORD_CHAR.test(after)]);
     skeleton += text.slice(last, offset) + '\u0000';
     last = end;
-    TOKEN_RE.lastIndex = end;
+    OPENER_RE.lastIndex = end;
   }
   return { tokens, glue, skeleton: skeleton + text.slice(last) };
 };
