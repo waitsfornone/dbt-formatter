@@ -108,4 +108,9 @@ describe('dbt snapshot tests', () => {
     });
     expect(formatted).toBe(fixtures.dbtSnapshotSqlFormat.result);
   });
+
+  it('returns an empty string for empty input and a lone newline for whitespace-only input', () => {
+    expect(formatter('', { sql: 'default', indent: 4, newline: true })).toBe('');
+    expect(formatter('  \n', { sql: 'default', indent: 4, newline: true })).toBe('\n');
+  });
 });

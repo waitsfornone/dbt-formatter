@@ -6411,6 +6411,9 @@ var LinkedList = class {
     };
   }
   *items() {
+    if (this.isEmpty()) {
+      return;
+    }
     let node = this.head;
     while (node.next) {
       yield node;
@@ -7221,6 +7224,9 @@ var format = (query, opt = { sql: "default", indent: 2 }) => {
   if (!formatters.includes(opt.sql)) {
     throw Error(`Unsupported SQL dialect: ${opt.sql}`);
   }
+  if (query === "") {
+    return query;
+  }
   const config = getConfiguration(opt);
   const tokens = new Tokenizer(config).tokenize(query);
   if (hasTagGlue(tokens)) {
@@ -7231,22 +7237,51 @@ var format = (query, opt = { sql: "default", indent: 2 }) => {
 var dbt_formatter_default = format;
 
 // src/hook/verify.ts
-var TOKEN_RE = new RegExp(
-  [
-    /\{#[\s\S]*?#\}/,
-    /\{\{[\s\S]*?\}\}/,
-    /\{%[\s\S]*?%\}/,
-    /--[^\n]*/,
-    /\/\/[^\n]*/,
-    /\/\*[\s\S]*?\*\//,
-    /\$\$[\s\S]*?\$\$/,
-    /'(?:[^'\\]|\\[\s\S]|'')*'/,
-    /"(?:[^"\\]|\\[\s\S]|"")*"/,
-    /`[^`]*`/,
-    /\[[^\]]*\]/
-  ].map((r) => r.source).join("|"),
-  "g"
-);
+var findTagEnd = (text, start) => {
+  const close = text.charAt(start + 1) === "{" ? "}}" : "%}";
+  const unclosed = {};
+  let i = start + 2;
+  while (i < text.length) {
+    const c = text.charAt(i);
+    if ((c === "'" || c === '"') && !unclosed[c]) {
+      let j = i + 1;
+      while (j < text.length && text.charAt(j) !== c) {
+        j += text.charAt(j) === "\\" ? 2 : 1;
+      }
+      if (j < text.length) {
+        i = j + 1;
+        continue;
+      }
+      unclosed[c] = true;
+    } else if (text.startsWith(close, i)) {
+      return i + 2;
+    }
+    i++;
+  }
+  return -1;
+};
+var OPENER_RE = /\{#|\{\{|\{%|--|\/\/|\/\*|\$\$|'|"|`|\[/g;
+var sticky = (re) => new RegExp(re.source, "y");
+var FORMS = {
+  "{#": sticky(/\{#[\s\S]*?#\}/),
+  "--": sticky(/--[^\n]*/),
+  "//": sticky(/\/\/[^\n]*/),
+  "/*": sticky(/\/\*[\s\S]*?\*\//),
+  $$: sticky(/\$\$[\s\S]*?\$\$/),
+  "'": sticky(/'(?:[^'\\]|\\[\s\S]|'')*'/),
+  '"': sticky(/"(?:[^"\\]|\\[\s\S]|"")*"/),
+  "`": sticky(/`[^`]*`/),
+  "[": sticky(/\[[^\]]*\]/)
+};
+var findTokenEnd = (text, start, opener) => {
+  if (opener === "{{" || opener === "{%") {
+    return findTagEnd(text, start);
+  }
+  const form = FORMS[opener];
+  form.lastIndex = start;
+  const m = form.exec(text);
+  return m ? start + m[0].length : -1;
+};
 var STRING_RE = /'(?:[^']|'')*'|"(?:[^"]|"")*"/g;
 var SQL_TOKEN_RE = /\u0000|[A-Za-z_][A-Za-z0-9_$]*|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|::|<=|>=|<>|!=|\|\||->>|->|=>|:=|\S/g;
 var WORD_CHAR = /\w/;
@@ -7256,14 +7291,30 @@ var sqlTokens = (skeleton) => (skeleton.match(SQL_TOKEN_RE) || []).map((t) => t.
 var tokenize = (text) => {
   const tokens = [];
   const glue = [];
-  const skeleton = text.replace(TOKEN_RE, (match, offset) => {
-    tokens.push(match);
+  const unterminated = {};
+  let skeleton = "";
+  let last2 = 0;
+  OPENER_RE.lastIndex = 0;
+  for (let m = OPENER_RE.exec(text); m; m = OPENER_RE.exec(text)) {
+    const offset = m.index;
+    const opener = m[0];
+    if (unterminated[opener]) {
+      continue;
+    }
+    const end = findTokenEnd(text, offset, opener);
+    if (end < 0) {
+      unterminated[opener] = true;
+      continue;
+    }
+    tokens.push(text.slice(offset, end));
     const before = offset > 0 ? text.charAt(offset - 1) : "";
-    const after = offset + match.length < text.length ? text.charAt(offset + match.length) : "";
+    const after = end < text.length ? text.charAt(end) : "";
     glue.push([WORD_CHAR.test(before), WORD_CHAR.test(after)]);
-    return "\0";
-  });
-  return { tokens, glue, skeleton };
+    skeleton += text.slice(last2, offset) + "\0";
+    last2 = end;
+    OPENER_RE.lastIndex = end;
+  }
+  return { tokens, glue, skeleton: skeleton + text.slice(last2) };
 };
 var kind = (tok) => {
   if (tok.startsWith("{#")) {

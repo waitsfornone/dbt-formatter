@@ -62,6 +62,10 @@ const format = (query: string, opt: Options = { sql: 'default', indent: 2 }): st
     throw Error(`Unsupported SQL dialect: ${opt.sql}`);
   }
 
+  if (query === '') {
+    return query;
+  }
+
   const config = getConfiguration(opt);
   const tokens = new Tokenizer(config).tokenize(query);
   if (hasTagGlue(tokens)) {

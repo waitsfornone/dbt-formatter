@@ -54,6 +54,45 @@ describe('verify', () => {
     expect(verify('{{ x }}', '{{ y }}')).toMatch(/jinja altered/);
   });
 
+  it('does not end a jinja tag at a closing delimiter inside a quoted string', () => {
+    const cfg = '{{ config(pre_hook="{{ f(this) }}", materialized=\'table\') }}';
+    expect(verify(cfg, cfg.replace('config(', 'config( '))).toBeNull();
+    expect(verify("{% set x = '%}' %}\nselect 1", "{% set x = '%}' %}\n\nselect 1")).toBeNull();
+    expect(verify('{{ config(pre_hook="{{ f(this) }}") }}', '{{ config(pre_hook="{{ F(this) }}") }}')).toMatch(/jinja/);
+  });
+
+  it('stays fast on an unterminated quote inside a jinja tag', () => {
+    const inputs = [
+      '{{ ' + "'a ".repeat(20000) + ' }}',
+      '{{ x = "' + "\\'".repeat(40000) + ' }}',
+      '{% set x = \'' + '\\"'.repeat(40000) + ' %}',
+      '{{ \' ' + '"'.repeat(40000) + ' }}',
+    ];
+    for (const text of inputs) {
+      const start = Date.now();
+      expect(verify(text, text)).toBeNull();
+      expect(Date.now() - start).toBeLessThan(1000);
+    }
+  });
+
+  it('stays fast on unterminated quotes, brackets and comments', () => {
+    const inputs = [
+      "select '" + "a '".repeat(30000),
+      "select '" + "\\'".repeat(30000),
+      'select ' + '[a '.repeat(30000),
+      'select ' + '`a '.repeat(30000),
+      '{# ' + '{# '.repeat(30000),
+      '/* ' + '/* '.repeat(30000),
+      '$$ ' + 'a $$ b '.repeat(1) + '$$$ '.repeat(10000),
+      '{{ ' + '{{ '.repeat(30000),
+    ];
+    for (const text of inputs) {
+      const start = Date.now();
+      verify(text, text);
+      expect(Date.now() - start).toBeLessThan(1000);
+    }
+  });
+
   it('accepts whitespace changes inside a jinja tag', () => {
     expect(verify("{{config(materialized='table')}}", "{{ config(materialized='table') }}")).toBeNull();
   });

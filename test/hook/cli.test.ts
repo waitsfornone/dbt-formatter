@@ -140,6 +140,14 @@ describe('run', () => {
       expect(run([f], capture().io)).toBe(0);
     }
   });
+
+  it('leaves a zero-byte file empty', () => {
+    const f = write('empty.sql', '');
+    const r = capture();
+    expect(run([f], r.io)).toBe(0);
+    expect(r.err).toEqual([]);
+    expect(fs.readFileSync(f, 'utf8')).toBe('');
+  });
 });
 
 describe('built bundle (hook/dbt-formatter-hook.js)', () => {
