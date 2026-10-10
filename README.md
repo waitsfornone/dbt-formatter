@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/henriblancke/dbt-formatter/tree/master.svg?style=svg)](https://circleci.com/gh/henriblancke/dbt-formatter/tree/master)
+[![CI](https://github.com/waitsfornone/dbt-formatter/actions/workflows/ci.yml/badge.svg)](https://github.com/waitsfornone/dbt-formatter/actions/workflows/ci.yml)
 
 # DBT Formatter
 
