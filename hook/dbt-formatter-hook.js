@@ -7237,14 +7237,34 @@ var format = (query, opt = { sql: "default", indent: 2 }) => {
 var dbt_formatter_default = format;
 
 // src/hook/verify.ts
-var JINJA_STR = /'(?:[^'\\]|\\[\s\S])*'|"(?:[^"\\]|\\[\s\S])*"/.source;
-var JINJA_EXPR = new RegExp(`\\{\\{(?:${JINJA_STR}|[^}'"]|\\}(?!\\})|['"])*?\\}\\}`);
-var JINJA_STMT = new RegExp(`\\{%(?:${JINJA_STR}|[^%'"]|%(?!\\})|['"])*?%\\}`);
+var findTagEnd = (text, start) => {
+  const close = text.charAt(start + 1) === "{" ? "}}" : "%}";
+  const unclosed = {};
+  let i = start + 2;
+  while (i < text.length) {
+    const c = text.charAt(i);
+    if ((c === "'" || c === '"') && !unclosed[c]) {
+      let j = i + 1;
+      while (j < text.length && text.charAt(j) !== c) {
+        j += text.charAt(j) === "\\" ? 2 : 1;
+      }
+      if (j < text.length) {
+        i = j + 1;
+        continue;
+      }
+      unclosed[c] = true;
+    } else if (text.startsWith(close, i)) {
+      return i + 2;
+    }
+    i++;
+  }
+  return -1;
+};
 var TOKEN_RE = new RegExp(
   [
     /\{#[\s\S]*?#\}/,
-    JINJA_EXPR,
-    JINJA_STMT,
+    /\{[{%]/,
+    // opener only; findTagEnd finds the rest
     /--[^\n]*/,
     /\/\/[^\n]*/,
     /\/\*[\s\S]*?\*\//,
@@ -7265,14 +7285,28 @@ var sqlTokens = (skeleton) => (skeleton.match(SQL_TOKEN_RE) || []).map((t) => t.
 var tokenize = (text) => {
   const tokens = [];
   const glue = [];
-  const skeleton = text.replace(TOKEN_RE, (match, offset) => {
-    tokens.push(match);
+  let skeleton = "";
+  let last2 = 0;
+  TOKEN_RE.lastIndex = 0;
+  for (let m = TOKEN_RE.exec(text); m; m = TOKEN_RE.exec(text)) {
+    const offset = m.index;
+    let end = offset + m[0].length;
+    if (m[0] === "{{" || m[0] === "{%") {
+      const tagEnd = findTagEnd(text, offset);
+      if (tagEnd < 0) {
+        continue;
+      }
+      end = tagEnd;
+    }
+    tokens.push(text.slice(offset, end));
     const before = offset > 0 ? text.charAt(offset - 1) : "";
-    const after = offset + match.length < text.length ? text.charAt(offset + match.length) : "";
+    const after = end < text.length ? text.charAt(end) : "";
     glue.push([WORD_CHAR.test(before), WORD_CHAR.test(after)]);
-    return "\0";
-  });
-  return { tokens, glue, skeleton };
+    skeleton += text.slice(last2, offset) + "\0";
+    last2 = end;
+    TOKEN_RE.lastIndex = end;
+  }
+  return { tokens, glue, skeleton: skeleton + text.slice(last2) };
 };
 var kind = (tok) => {
   if (tok.startsWith("{#")) {

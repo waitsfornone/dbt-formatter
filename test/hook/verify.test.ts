@@ -61,11 +61,18 @@ describe('verify', () => {
     expect(verify('{{ config(pre_hook="{{ f(this) }}") }}', '{{ config(pre_hook="{{ F(this) }}") }}')).toMatch(/jinja/);
   });
 
-  it('stays linear on an unterminated quote inside a jinja tag', () => {
-    const text = '{{ ' + "'a ".repeat(20000) + ' }}';
-    const start = Date.now();
-    verify(text, text);
-    expect(Date.now() - start).toBeLessThan(2000);
+  it('stays fast on an unterminated quote inside a jinja tag', () => {
+    const inputs = [
+      '{{ ' + "'a ".repeat(20000) + ' }}',
+      '{{ x = "' + "\\'".repeat(40000) + ' }}',
+      '{% set x = \'' + '\\"'.repeat(40000) + ' %}',
+      '{{ \' ' + '"'.repeat(40000) + ' }}',
+    ];
+    for (const text of inputs) {
+      const start = Date.now();
+      expect(verify(text, text)).toBeNull();
+      expect(Date.now() - start).toBeLessThan(1000);
+    }
   });
 
   it('accepts whitespace changes inside a jinja tag', () => {
