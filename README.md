@@ -21,7 +21,7 @@ Fork of [henriblancke/dbt-formatter](https://github.com/henriblancke/dbt-formatt
    ```yaml
    repos:
      - repo: https://github.com/waitsfornone/dbt-formatter
-       rev: v1.4.0
+       rev: v1.4.1
        hooks:
          - id: dbt-formatter          # formats in place
          # - id: dbt-formatter-check  # report only, changes nothing

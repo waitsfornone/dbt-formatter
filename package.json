@@ -1,6 +1,6 @@
 {
   "name": "dbt-formatter",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "DBT jinja/sql formatter",
   "keywords": [
