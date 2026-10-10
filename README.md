@@ -43,8 +43,13 @@ The hook runs `hook/dbt-formatter-hook.js`, a single bundled file with no depend
 
 ### Install
 
+This fork is not published to npm. The `dbt-formatter` package on npm is the upstream project and does not have the fixes listed above. Use the pre-commit hook (above), or build it from a clone:
+
 ```bash
-npm install -s dbt-formatter
+git clone https://github.com/waitsfornone/dbt-formatter
+cd dbt-formatter
+npm ci
+npm run build   # writes dist/ (library bundles and dist/cli/formatter.js)
 ```
 
 ### Usage

@@ -1,6 +1,7 @@
 {
   "name": "dbt-formatter",
   "version": "1.3.0",
+  "private": true,
   "description": "DBT jinja/sql formatter",
   "keywords": [
     "dbt",
@@ -36,7 +37,6 @@
     "test": "jest --coverage",
     "prebuild": "rimraf dist bin",
     "build": "npm run prebuild && rollup -c rollup.config.ts",
-    "prepublishOnly": "npm run build",
     "package": "npm run prebuild && npm run build && pkg dist/cli/* --out-path bin --debug",
     "test:watch": "jest --coverage --watch",
     "test:ci": "npm run lint && npm run test -- --no-cache",
