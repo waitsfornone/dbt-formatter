@@ -22,3 +22,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:ci
+      - run: npm run build
+      - name: Smoke-test the built CLI
+        run: |
+          printf 'select a,b from t where x=1\n' > "$RUNNER_TEMP/smoke.sql"
+          node dist/cli/formatter.js -f "$RUNNER_TEMP/smoke.sql" | grep -q 'x = 1'
