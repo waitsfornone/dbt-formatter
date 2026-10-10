@@ -13,14 +13,25 @@ Fork of [henriblancke/dbt-formatter](https://github.com/henriblancke/dbt-formatt
 
 ### Use with pre-commit
 
-```yaml
-repos:
-  - repo: https://github.com/waitsfornone/dbt-formatter
-    rev: <commit sha or tag>
-    hooks:
-      - id: dbt-formatter          # formats in place
-      # - id: dbt-formatter-check  # report only, changes nothing
-```
+[pre-commit](https://pre-commit.com) runs the formatter on staged `.sql` files before each commit. Nothing needs to be installed from npm; pre-commit fetches this repository and sets up Node itself.
+
+1. Install pre-commit once per machine (`pip install pre-commit` or `brew install pre-commit`).
+2. Add this to `.pre-commit-config.yaml` at the root of your dbt project (create the file if it does not exist):
+
+   ```yaml
+   repos:
+     - repo: https://github.com/waitsfornone/dbt-formatter
+       rev: <commit sha>
+       hooks:
+         - id: dbt-formatter          # formats in place
+         # - id: dbt-formatter-check  # report only, changes nothing
+   ```
+
+   There are no release tags for the hook yet, so pin `rev` to a commit SHA from `master` (`git ls-remote https://github.com/waitsfornone/dbt-formatter master`). Avoid a branch name as `rev`: pre-commit warns that it is a mutable reference, and it will not update on its own.
+3. Register the git hook in your clone: `pre-commit install`. Every contributor does this once per clone.
+4. Optionally format everything that is already committed: `pre-commit run dbt-formatter --all-files`. The first run on an existing project will rewrite many files, so do it in its own commit, and expect it to exit 1 because files were changed. Running it again should pass with no changes.
+
+To move to a newer version, run `pre-commit autoupdate` (or edit `rev`). To limit the hook to part of a repository, add `files: ^models/` or `exclude: ^target/` to the hook entry.
 
 The hook runs `hook/dbt-formatter-hook.js`, a single bundled file with no dependencies. pre-commit downloads Node for it if none is installed.
 
